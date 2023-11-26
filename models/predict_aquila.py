@@ -74,52 +74,34 @@ class Conversation:
         if self.sep_style == SeparatorStyle.ADD_COLON_SINGLE:
             ret = system_prompt + self.sep
             for role, message in self.messages:
-                if message:
-                    ret += role + ": " + message + self.sep
-                else:
-                    ret += role + ":"
+                ret += f"{role}: {message}{self.sep}" if message else f"{role}:"
             return ret
         elif self.sep_style == SeparatorStyle.ADD_COLON_TWO:
             seps = [self.sep, self.sep2]
             ret = system_prompt + seps[0]
             for i, (role, message) in enumerate(self.messages):
-                if message:
-                    ret += role + ": " + message + seps[i % 2]
-                else:
-                    ret += role + ":"
+                ret += f"{role}: {message}{seps[i % 2]}" if message else f"{role}:"
             return ret
         elif self.sep_style == SeparatorStyle.ADD_COLON_SPACE_SINGLE:
             ret = system_prompt + self.sep
             for role, message in self.messages:
-                if message:
-                    ret += role + ": " + message + self.sep
-                else:
-                    ret += role + ": "  # must be end with a space
+                ret += f"{role}: {message}{self.sep}" if message else f"{role}: "
             return ret
         elif self.sep_style == SeparatorStyle.ADD_NEW_LINE_SINGLE:
             ret = "" if system_prompt == "" else system_prompt + self.sep
             for role, message in self.messages:
-                if message:
-                    ret += role + "\n" + message + self.sep
-                else:
-                    ret += role + "\n"
+                ret += role + "\n" + message + self.sep if message else role + "\n"
             return ret
         elif self.sep_style == SeparatorStyle.NO_COLON_SINGLE:
             ret = system_prompt
             for role, message in self.messages:
-                if message:
-                    ret += role + message + self.sep
-                else:
-                    ret += role
+                ret += role + message + self.sep if message else role
             return ret
         elif self.sep_style == SeparatorStyle.NO_COLON_TWO:
             seps = [self.sep, self.sep2]
             ret = system_prompt
             for i, (role, message) in enumerate(self.messages):
-                if message:
-                    ret += role + message + seps[i % 2]
-                else:
-                    ret += role
+                ret += role + message + seps[i % 2] if message else role
             return ret
 
     def set_system_message(self, system_message: str):
@@ -340,7 +322,7 @@ def predict(model, text, tokenizer=None,
 
     id2word = {v:k for k, v in vocab.items()}
 
-    
+
     template_map = {"AquilaChat2-7B": "aquila-v1",
                     "AquilaChat2-34B": "aquila-legacy",
                     "AquilaChat2-7B-16K": "aquila",
@@ -354,11 +336,10 @@ def predict(model, text, tokenizer=None,
         temperature = 1.0
     if sft:
         tokens = covert_prompt_to_input_ids_with_history(text, history=history, tokenizer=tokenizer, max_token=1000000, convo_template=convo_template)
-        tokens = torch.tensor(tokens)[None,].to(device)
-    else :
+    else:
         tokens = tokenizer.encode_plus(text)["input_ids"]
         print(tokenizer.decode(tokens))
-        tokens = torch.tensor(tokens)[None,].to(device)
+    tokens = torch.tensor(tokens)[None,].to(device)
     input_length = len(tokens[0])
     with torch.no_grad():
 
@@ -374,7 +355,7 @@ def predict(model, text, tokenizer=None,
                 TopPLogitsWarper(top_p),
                 TopKLogitsWarper(topk),
                 TemperatureLogitsWarper(temperature),
-                
+
             ]
         )
 
@@ -388,7 +369,7 @@ def predict(model, text, tokenizer=None,
                             output_scores=True,
                         )
 
-        
+
         # print(out)
         out_ids = out["sequences"][0][input_length:].cpu().numpy()
 
@@ -397,10 +378,7 @@ def predict(model, text, tokenizer=None,
         out_scores = torch.cat(out_scores, dim=0)
         out_scores = torch.nn.functional.softmax(out_scores, dim=-1).cpu().numpy()
 
-        probs = []
-        for i in range(len(out_ids)):
-            probs.append(float(out_scores[i][out_ids[i]]))
-
+        probs = [float(out_scores[i][out_ids[i]]) for i in range(len(out_ids))]
         # print(f"probs is {probs}")
 
         convert_tokens = []
@@ -411,7 +389,7 @@ def predict(model, text, tokenizer=None,
                 convert_tokens.append(id2word.get(t, "[unkonwn_token]"))
 
         out_text = tokenizer.decode(out_ids.tolist())
-        
+
 
         out = out_text
 

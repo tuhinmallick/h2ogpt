@@ -47,45 +47,42 @@ def glob_to_db(user_path, chunk=True, chunk_size=512, verbose=False,
 
                is_public=False):
     assert db_type is not None
-    sources1 = path_to_docs(user_path, verbose=verbose, fail_any_exception=fail_any_exception,
-                            n_jobs=n_jobs,
-                            chunk=chunk,
-                            chunk_size=chunk_size, url=url,
-
-                            # urls
-                            use_unstructured=use_unstructured,
-                            use_playwright=use_playwright,
-                            use_selenium=use_selenium,
-
-                            # pdfs
-                            use_pymupdf=use_pymupdf,
-                            use_unstructured_pdf=use_unstructured_pdf,
-                            use_pypdf=use_pypdf,
-                            enable_pdf_ocr=enable_pdf_ocr,
-                            try_pdf_as_html=try_pdf_as_html,
-                            enable_pdf_doctr=enable_pdf_doctr,
-
-                            # images
-                            enable_ocr=enable_ocr,
-                            enable_doctr=enable_doctr,
-                            enable_pix2struct=enable_pix2struct,
-                            enable_captions=enable_captions,
-                            enable_transcriptions=enable_transcriptions,
-                            captions_model=captions_model,
-                            caption_loader=caption_loader,
-                            doctr_loader=doctr_loader,
-                            asr_model=asr_model,
-                            asr_loader=asr_loader,
-
-                            # json
-                            jq_schema=jq_schema,
-
-                            db_type=db_type,
-                            selected_file_types=selected_file_types,
-
-                            is_public=is_public,
-                            )
-    return sources1
+    return path_to_docs(
+        user_path,
+        verbose=verbose,
+        fail_any_exception=fail_any_exception,
+        n_jobs=n_jobs,
+        chunk=chunk,
+        chunk_size=chunk_size,
+        url=url,
+        # urls
+        use_unstructured=use_unstructured,
+        use_playwright=use_playwright,
+        use_selenium=use_selenium,
+        # pdfs
+        use_pymupdf=use_pymupdf,
+        use_unstructured_pdf=use_unstructured_pdf,
+        use_pypdf=use_pypdf,
+        enable_pdf_ocr=enable_pdf_ocr,
+        try_pdf_as_html=try_pdf_as_html,
+        enable_pdf_doctr=enable_pdf_doctr,
+        # images
+        enable_ocr=enable_ocr,
+        enable_doctr=enable_doctr,
+        enable_pix2struct=enable_pix2struct,
+        enable_captions=enable_captions,
+        enable_transcriptions=enable_transcriptions,
+        captions_model=captions_model,
+        caption_loader=caption_loader,
+        doctr_loader=doctr_loader,
+        asr_model=asr_model,
+        asr_loader=asr_loader,
+        # json
+        jq_schema=jq_schema,
+        db_type=db_type,
+        selected_file_types=selected_file_types,
+        is_public=is_public,
+    )
 
 
 def make_db_main(use_openai_embedding: bool = False,
@@ -228,27 +225,26 @@ def make_db_main(use_openai_embedding: bool = False,
         if hf_embedding_model is None:
             # if no GPUs, use simpler embedding model to avoid cost in time
             hf_embedding_model = "sentence-transformers/all-MiniLM-L6-v2"
-    else:
-        if hf_embedding_model is None:
-            # if still None, then set default
-            hf_embedding_model = 'hkunlp/instructor-large'
+    elif hf_embedding_model is None:
+        # if still None, then set default
+        hf_embedding_model = 'hkunlp/instructor-large'
 
     existing_db = False
 
     if download_all:
-        print("Downloading all (and unzipping): %s" % all_db_zips, flush=True)
+        print(f"Downloading all (and unzipping): {all_db_zips}", flush=True)
         get_some_dbs_from_hf(download_dest, db_zips=all_db_zips)
         if verbose:
             print("DONE", flush=True)
         existing_db = True
     elif download_some:
-        print("Downloading some (and unzipping): %s" % some_db_zips, flush=True)
+        print(f"Downloading some (and unzipping): {some_db_zips}", flush=True)
         get_some_dbs_from_hf(download_dest, db_zips=some_db_zips)
         if verbose:
             print("DONE", flush=True)
         existing_db = True
     elif download_one:
-        print("Downloading %s (and unzipping)" % download_one, flush=True)
+        print(f"Downloading {download_one} (and unzipping)", flush=True)
         get_some_dbs_from_hf(download_dest, db_zips=[[download_one, '', 'Unknown License']])
         if verbose:
             print("DONE", flush=True)
@@ -266,8 +262,7 @@ def make_db_main(use_openai_embedding: bool = False,
                             hf_embedding_model, migrate_embedding_model, auto_migrate_db,
                             verbose=False,
                             n_jobs=n_jobs)
-        return db, collection_name
-
+        return db, langchain_mode
     if enable_captions and pre_load_image_audio_models:
         # preload, else can be too slow or if on GPU have cuda context issues
         # Inside ingestion, this will disable parallel loading of multiple other kinds of docs
@@ -278,11 +273,10 @@ def make_db_main(use_openai_embedding: bool = False,
                                                blip_processor=captions_model,
                                                caption_gpu=caption_gpu,
                                                ).load_model()
+    elif enable_captions:
+        caption_loader = 'gpu' if n_gpus > 0 and caption_gpu else 'cpu'
     else:
-        if enable_captions:
-            caption_loader = 'gpu' if n_gpus > 0 and caption_gpu else 'cpu'
-        else:
-            caption_loader = False
+        caption_loader = False
     if enable_doctr or enable_pdf_ocr in [True, 'auto', 'on']:
         doctr_loader = 'gpu' if n_gpus > 0 and caption_gpu else 'cpu'
     else:
@@ -297,7 +291,7 @@ def make_db_main(use_openai_embedding: bool = False,
         print("Getting sources", flush=True)
     assert user_path is not None or url is not None, "Can't have both user_path and url as None"
     if not url:
-        assert os.path.isdir(user_path), "user_path=%s does not exist" % user_path
+        assert os.path.isdir(user_path), f"user_path={user_path} does not exist"
     sources = glob_to_db(user_path, chunk=chunk, chunk_size=chunk_size, verbose=verbose,
                          fail_any_exception=fail_any_exception, n_jobs=n_jobs, url=url,
 
@@ -336,10 +330,10 @@ def make_db_main(use_openai_embedding: bool = False,
                          is_public=False,
                          )
     exceptions = [x for x in sources if x.metadata.get('exception')]
-    print("Exceptions: %s/%s %s" % (len(exceptions), len(sources), exceptions), flush=True)
+    print(f"Exceptions: {len(exceptions)}/{len(sources)} {exceptions}", flush=True)
     sources = [x for x in sources if 'exception' not in x.metadata]
 
-    assert len(sources) > 0 or not fail_if_no_sources, "No sources found"
+    assert sources or not fail_if_no_sources, "No sources found"
     db = create_or_update_db(db_type, persist_directory,
                              collection_name, user_path, langchain_type,
                              sources, use_openai_embedding, add_if_exists, verbose,

@@ -321,12 +321,11 @@ class TextCompletion(_Completion):
         :param enable_streaming: whether to enable or disable streaming the response
         :return: response from the model
         """
-        if enable_streaming:
-            params = self._get_parameters(prompt)
-            params["stream_output"] = True
-            return self._submit_and_stream(prompt)
-        else:
+        if not enable_streaming:
             return await self._submit(prompt)
+        params = self._get_parameters(prompt)
+        params["stream_output"] = True
+        return self._submit_and_stream(prompt)
 
     def complete_sync(
         self, prompt: str, enable_streaming: bool = False
@@ -338,12 +337,11 @@ class TextCompletion(_Completion):
         :param enable_streaming: whether to enable or disable streaming the response
         :return: response from the model
         """
-        if enable_streaming:
-            params = self._get_parameters(prompt)
-            params["stream_output"] = True
-            return self._predict_and_stream(prompt)
-        else:
+        if not enable_streaming:
             return self._predict(prompt)
+        params = self._get_parameters(prompt)
+        params["stream_output"] = True
+        return self._predict_and_stream(prompt)
 
 
 class ChatCompletionCreator:

@@ -30,7 +30,7 @@ class StoppingCriteriaSub(StoppingCriteria):
         if self.look_at_new_tokens_only:
             new_tokens = input_ids[0][self.token_start:]
         else:
-            new_tokens = input_ids[0][0:]
+            new_tokens = input_ids[0][:]
         for stopi, (stop, stop_word) in enumerate(zip(self.stops, self.stop_words)):
             current_block = new_tokens[-len(stop):]
             stop_text = self.tokenizer.decode(current_block)
@@ -41,13 +41,13 @@ class StoppingCriteriaSub(StoppingCriteria):
                 if self.num_stops[stopi] >= self.encounters[stopi % len(self.encounters)]:
                     # print("Stopped", flush=True)
                     return True
-        if self.truncation_generation and (
-                self.model_max_length is not None and input_ids[0].shape[0] >= self.model_max_length):
-            # critical limit
-            return True
-        # print("Tokens: %s" % input_ids[0].cpu().numpy(), flush=True)
-        # print("Stop Tokens: %s" % [x.cpu().numpy() for x in self.stops], flush=True)
-        return False
+        return bool(
+            self.truncation_generation
+            and (
+                self.model_max_length is not None
+                and input_ids[0].shape[0] >= self.model_max_length
+            )
+        )
 
 
 def get_stopping(prompt_type, prompt_dict, tokenizer, device, base_model,
@@ -144,7 +144,7 @@ def get_stopping(prompt_type, prompt_dict, tokenizer, device, base_model,
     if base_model and t5_type(base_model):
         # T5 encoder converts internal double space to space+new line, so fix
         for stopi, stop_word_id in enumerate(stop_words_ids):
-            start = stop_word_id[0:1]
+            start = stop_word_id[:1]
             mlist = stop_word_id[1:-1]
             end = stop_word_id[-1:]
             mlist = [tokenizer.vocab[' '] if x == tokenizer.vocab['\n'] else x for x in mlist]
@@ -152,15 +152,20 @@ def get_stopping(prompt_type, prompt_dict, tokenizer, device, base_model,
     # handle fake \n added
     stop_words_ids = [x[1:] if y[0] == '\n' and handle_newline else x for x, y, handle_newline in
                       zip(stop_words_ids, stop_words, handle_newlines)]
-    if stop_words_ids:
-        # build stopper
-        stopping_criteria = StoppingCriteriaList(
-            [StoppingCriteriaSub(stops=stop_words_ids,
-                                 stop_words=stop_words,
-                                 encounters=encounters, device=device,
-                                 model_max_length=model_max_length, tokenizer=tokenizer,
-                                 truncation_generation=truncation_generation)])
-    else:
-        # nothing to stop on
-        stopping_criteria = StoppingCriteriaList()
-    return stopping_criteria
+    return (
+        StoppingCriteriaList(
+            [
+                StoppingCriteriaSub(
+                    stops=stop_words_ids,
+                    stop_words=stop_words,
+                    encounters=encounters,
+                    device=device,
+                    model_max_length=model_max_length,
+                    tokenizer=tokenizer,
+                    truncation_generation=truncation_generation,
+                )
+            ]
+        )
+        if stop_words_ids
+        else StoppingCriteriaList()
+    )

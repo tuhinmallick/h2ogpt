@@ -43,12 +43,12 @@ def get_loaders(model_name, reward_type, llama_type=None,
 
         # Locate files we need within that directory
         tokenizer_path = os.path.join(model_directory, "tokenizer.model")
-        assert os.path.isfile(tokenizer_path), "Missing %s" % tokenizer_path
+        assert os.path.isfile(tokenizer_path), f"Missing {tokenizer_path}"
         model_config_path = os.path.join(model_directory, "config.json")
-        assert os.path.isfile(model_config_path), "Missing %s" % model_config_path
+        assert os.path.isfile(model_config_path), f"Missing {model_config_path}"
         st_pattern = os.path.join(model_directory, "*.safetensors")
         model_path = glob.glob(st_pattern)[0]
-        assert os.path.isfile(model_path), "Missing %s" % model_path
+        assert os.path.isfile(model_path), f"Missing {model_path}"
 
         # Create config, model, tokenizer and generator
         exconfig = ExLlamaConfig(model_config_path)  # create config from config.json
@@ -95,7 +95,7 @@ def get_loaders(model_name, reward_type, llama_type=None,
                                          **gptq_dict,
                                          )
         return model_loader, AutoTokenizer, False
-    if load_gptq and not use_autogptq:
+    if load_gptq:
         assert have_optimum, "To use HF transformers GPTQ, please: pip install optimum"
     if load_awq:
         from transformers import AutoTokenizer

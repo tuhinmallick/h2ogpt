@@ -6,7 +6,7 @@ import webbrowser
 # ensure CPU install only uses CPU
 # os.environ['CUDA_VISIBLE_DEVICES'] = ''
 
-print('__file__: %s' % __file__)
+print(f'__file__: {__file__}')
 path1 = os.path.dirname(os.path.abspath(__file__))
 sys.path.append(path1)
 base_path = os.path.dirname(path1)
@@ -45,7 +45,7 @@ def main():
     server_name = os.getenv('h2ogpt_server_name', os.getenv('H2OGPT_SERVER_NAME', 'localhost'))
     server_port = os.getenv('GRADIO_SERVER_PORT', str(7860))
 
-    url = "http://%s:%s" % (server_name, server_port)
+    url = f"http://{server_name}:{server_port}"
     webbrowser.open(url)
 
     while True:

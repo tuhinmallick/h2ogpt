@@ -27,9 +27,7 @@ class GradioClientWrapper:
             if not len(outputs):
                 time.sleep(0.1)
                 continue
-            newest_response = outputs[-1]
-            yield newest_response
-
+            yield outputs[-1]
         e = job.exception()
         if e and isinstance(e, BaseException):
             raise RuntimeError from e
@@ -46,9 +44,7 @@ class GradioClientWrapper:
             if not len(outputs):
                 await asyncio.sleep(0.1)
                 continue
-            newest_response = outputs[-1]
-            yield newest_response
-
+            yield outputs[-1]
         e = job.exception()
         if e and isinstance(e, BaseException):
             raise RuntimeError from e

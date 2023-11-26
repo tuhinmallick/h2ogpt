@@ -156,9 +156,12 @@ openai_supports_functiontools = ["gpt-4-0613", "gpt-4-32k-0613", "gpt-3.5-turbo-
 
 
 def does_support_functiontools(inference_server, model_name):
-    if any([inference_server.startswith(x) for x in ['openai_azure', 'openai_azure_chat']]):
+    if any(
+        inference_server.startswith(x)
+        for x in ['openai_azure', 'openai_azure_chat']
+    ):
         return model_name.lower() in openai_supports_functiontools
-    elif any([inference_server.startswith(x) for x in ['openai', 'openai_chat']]):
+    elif any(inference_server.startswith(x) for x in ['openai', 'openai_chat']):
         # assume OpenAI serves updated models
         return True
     else:
@@ -171,14 +174,16 @@ source_prefix = "Sources [Score | Link]:"
 source_postfix = "End Sources<p>"
 
 super_source_prefix = f"""<details><summary><font size="{font_size}">Sources</font></summary><font size="{font_size}"><font size="{font_size}">Sources [Score | Link]:"""
-super_source_postfix = f"""End Sources<p></font></font></details>"""
+super_source_postfix = """End Sources<p></font></font></details>"""
 
 
 def t5_type(model_name):
-    return 't5' == model_name.lower() or \
-        't5-' in model_name.lower() or \
-        'flan-' in model_name.lower() or \
-        'fastchat-t5' in model_name.lower()
+    return (
+        model_name.lower() == 't5'
+        or 't5-' in model_name.lower()
+        or 'flan-' in model_name.lower()
+        or 'fastchat-t5' in model_name.lower()
+    )
 
 
 def get_langchain_prompts(pre_prompt_query, prompt_query, pre_prompt_summary, prompt_summary,
@@ -193,16 +198,16 @@ def get_langchain_prompts(pre_prompt_query, prompt_query, pre_prompt_summary, pr
         pre_prompt_query1 = "Pay attention and remember the information below, which will help to answer the question or imperative after the context ends.\n"
         prompt_query1 = "According to only the information in the document sources provided within the context above, "
 
-    pre_prompt_summary1 = """In order to write a concise single-paragraph or bulleted list summary, pay attention to the following text\n"""
-    prompt_summary1 = "Using only the information in the document sources above, write a condensed and concise summary of key results (preferably as bullet points):\n"
-
     if pre_prompt_query is None:
         pre_prompt_query = pre_prompt_query1
     if prompt_query is None:
         prompt_query = prompt_query1
     if pre_prompt_summary is None:
+        pre_prompt_summary1 = """In order to write a concise single-paragraph or bulleted list summary, pay attention to the following text\n"""
         pre_prompt_summary = pre_prompt_summary1
     if prompt_summary is None:
+        prompt_summary1 = "Using only the information in the document sources above, write a condensed and concise summary of key results (preferably as bullet points):\n"
+
         prompt_summary = prompt_summary1
 
     return pre_prompt_query, prompt_query, pre_prompt_summary, prompt_summary

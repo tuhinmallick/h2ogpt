@@ -107,24 +107,25 @@ def is_from_ui(requests_state1):
 def is_valid_key(enforce_h2ogpt_api_key, enforce_h2ogpt_ui_key, h2ogpt_api_keys, h2ogpt_key1, requests_state1=None):
     from_ui = is_from_ui(requests_state1)
 
-    if from_ui and not enforce_h2ogpt_ui_key:
+    if (
+        from_ui
+        and not enforce_h2ogpt_ui_key
+        or not from_ui
+        and not enforce_h2ogpt_api_key
+    ):
         # no token barrier
         return 'not enforced'
-    elif not from_ui and not enforce_h2ogpt_api_key:
-        # no token barrier
-        return 'not enforced'
-    else:
-        valid_key = False
-        if isinstance(h2ogpt_api_keys, list) and h2ogpt_key1 in h2ogpt_api_keys:
-            # passed token barrier
-            valid_key = True
-        elif isinstance(h2ogpt_api_keys, str) and os.path.isfile(h2ogpt_api_keys):
-            with filelock.FileLock(h2ogpt_api_keys + '.lock'):
-                with open(h2ogpt_api_keys, 'rt') as f:
-                    h2ogpt_api_keys = json.load(f)
-                if h2ogpt_key1 in h2ogpt_api_keys:
-                    valid_key = True
-        return valid_key
+    valid_key = False
+    if isinstance(h2ogpt_api_keys, list) and h2ogpt_key1 in h2ogpt_api_keys:
+        # passed token barrier
+        valid_key = True
+    elif isinstance(h2ogpt_api_keys, str) and os.path.isfile(h2ogpt_api_keys):
+        with filelock.FileLock(h2ogpt_api_keys + '.lock'):
+            with open(h2ogpt_api_keys, 'rt') as f:
+                h2ogpt_api_keys = json.load(f)
+            if h2ogpt_key1 in h2ogpt_api_keys:
+                valid_key = True
+    return valid_key
 
 
 def go_gradio(**kwargs):
@@ -5201,10 +5202,9 @@ def show_doc(db1s, selection_docs_state1, requests_state1,
     if api:
         if view_raw_text_checkbox1:
             return dict(contents=db_documents, metadatas=db_metadatas)
-        else:
-            contents = [text_to_html(y, api=api) for y in db_documents]
-            metadatas = [dict_to_html(x, api=api) for x in db_metadatas]
-            return dict(contents=contents, metadatas=metadatas)
+        contents = [text_to_html(y, api=api) for y in db_documents]
+        metadatas = [dict_to_html(x, api=api) for x in db_metadatas]
+        return dict(contents=contents, metadatas=metadatas)
     else:
         assert not api, "API mode for get_document only supported for chroma"
 
@@ -5290,24 +5290,16 @@ def show_doc(db1s, selection_docs_state1, requests_state1,
         if url_alive('https://' + file):
             file = 'https://' + file
 
-        if file.lower().startswith('http') or file.lower().startswith('https'):
-            # if file is online, then might as well use google(?)
-            document1 = file
-            return gr.update(visible=True,
-                             value=f"""<iframe width="1000" height="800" src="https://docs.google.com/viewerng/viewer?url={document1}&embedded=true" frameborder="0" height="100%" width="100%">
+        if not file.lower().startswith('http') and not file.lower().startswith(
+            'https'
+        ):
+            return dummy_ret
+        # if file is online, then might as well use google(?)
+        document1 = file
+        return gr.update(visible=True,
+                         value=f"""<iframe width="1000" height="800" src="https://docs.google.com/viewerng/viewer?url={document1}&embedded=true" frameborder="0" height="100%" width="100%">
 </iframe>
 """), dummy1, dummy1, dummy1, dummy1
-        else:
-            # FIXME: This doesn't work yet, just return dummy result for now
-            if False:
-                ip = get_local_ip()
-                document1 = url_path.replace('file://', f'http://{ip}:{port}/')
-                # document1 = url
-                return gr.update(visible=True, value=f"""<object data="{document1}" type="application/pdf">
-<iframe src="https://docs.google.com/viewer?url={document1}&embedded=true"></iframe>
-</object>"""), dummy1, dummy1, dummy1, dummy1
-            else:
-                return dummy_ret
     else:
         return dummy_ret
 

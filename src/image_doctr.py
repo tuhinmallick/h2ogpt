@@ -118,9 +118,9 @@ class H2OOCRLoader(ImageCaptionLoader):
             ocr_output = model([image])
             page_words = []
             page_boxes = []
-            for block_num, block in enumerate(ocr_output.pages[0].blocks):
-                for line_num, line in enumerate(block.lines):
-                    for word_num, word in enumerate(line.words):
+            for block in ocr_output.pages[0].blocks:
+                for line in block.lines:
+                    for word in line.words:
                         if not (word.value or "").strip():
                             continue
                         page_words.append(word.value)
@@ -143,11 +143,7 @@ def boxes_sort(boxes):
     Params:
         boxes: [[x1, y1, x2, y2], [x1, y1, x2, y2], ...]
     """
-    sorted_id = sorted(range(len(boxes)), key=lambda x: (boxes[x][1]))
-
-    # sorted_boxes = [boxes[id] for id in sorted_id]
-
-    return sorted_id
+    return sorted(range(len(boxes)), key=lambda x: (boxes[x][1]))
 
 
 def is_same_line(box1, box2):
@@ -160,10 +156,12 @@ def is_same_line(box1, box2):
     box1_midy = (box1[1] + box1[3]) / 2
     box2_midy = (box2[1] + box2[3]) / 2
 
-    if box1_midy < box2[3] and box1_midy > box2[1] and box2_midy < box1[3] and box2_midy > box1[1]:
-        return True
-    else:
-        return False
+    return (
+        box1_midy < box2[3]
+        and box1_midy > box2[1]
+        and box2_midy < box1[3]
+        and box2_midy > box1[1]
+    )
 
 
 def union_box(box1, box2):
@@ -210,9 +208,7 @@ def space_layout(texts, boxes, threshold_show_spaces=8, threshold_char_width=0.0
         if char_width == 0:
             char_width = 1
     else:
-        if char_width <= 0.02:
-            char_width = 0.02
-
+        char_width = max(char_width, 0.02)
     space_line_texts = []
     for i, line_box in enumerate(line_boxes):
         space_line_text = ""

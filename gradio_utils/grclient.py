@@ -35,7 +35,7 @@ def check_job(job, timeout=0.0, raise_exception=True, verbose=False):
         except concurrent.futures.TimeoutError:
             # not enough time to determine
             if verbose:
-                print("not enough time to determine job status: %s" % timeout)
+                print(f"not enough time to determine job status: {timeout}")
             e = None
     if e:
         # raise before complain about empty response if some error hit
@@ -89,7 +89,7 @@ class GradioClient(Client):
             output_dir: The directory to save files that are downloaded from the remote API. If None, reads from the GRADIO_TEMP_DIR environment variable. Defaults to a temporary directory on your machine.
             verbose: Whether the client should print statements to the console.
         """
-        self.args = tuple([src])
+        self.args = (src, )
         self.kwargs = dict(
             hf_token=hf_token,
             max_workers=max_workers,
@@ -113,12 +113,12 @@ class GradioClient(Client):
     def __repr__(self):
         if self.config:
             return self.view_api(print_info=False, return_format="str")
-        return "Not setup for %s" % self.src
+        return f"Not setup for {self.src}"
 
     def __str__(self):
         if self.config:
             return self.view_api(print_info=False, return_format="str")
-        return "Not setup for %s" % self.src
+        return f"Not setup for {self.src}"
 
     def setup(self):
         src = self.src
@@ -129,7 +129,7 @@ class GradioClient(Client):
             library_version=utils.__version__,
         )
         if src.startswith("http://") or src.startswith("https://"):
-            _src = src if src.endswith("/") else src + "/"
+            _src = src if src.endswith("/") else f"{src}/"
         else:
             _src = self._space_name_to_src(src)
             if _src is None:
@@ -144,7 +144,6 @@ class GradioClient(Client):
                 print("Space is still building. Please wait...")
             while self._get_space_state() == SpaceStage.BUILDING:
                 time.sleep(2)  # so we don't get rate limited by the API
-                pass
         if state in utils.INVALID_RUNTIME:
             raise ValueError(
                 f"The current space is in the invalid state: {state}. "
@@ -198,9 +197,8 @@ class GradioClient(Client):
             # risky to persist if hash changed
             self.refresh_client(persist=False)
             self.server_hash = server_hash
-        else:
-            if not persist:
-                self.reset_session()
+        elif not persist:
+            self.reset_session()
 
     def refresh_client(self, persist=True):
         """
@@ -259,8 +257,7 @@ class GradioClient(Client):
         e = check_job(job, timeout=0.01, raise_exception=False)
         if e is not None:
             print(
-                "GR job failed: %s %s"
-                % (str(e), "".join(traceback.format_tb(e.__traceback__))),
+                f'GR job failed: {str(e)} {"".join(traceback.format_tb(e.__traceback__))}',
                 flush=True,
             )
             # force reconfig in case only that
@@ -295,8 +292,7 @@ class GradioClient(Client):
         kwargs["instruction"] = kwargs.get("instruction", instruction)
         kwargs["langchain_action"] = LangChainAction.QUERY.value
         kwargs["langchain_mode"] = 'LLM'
-        ret = yield from self.query_or_summarize_or_extract(*args, **kwargs)
-        return ret
+        return (yield from self.query_or_summarize_or_extract(*args, **kwargs))
 
     def query(self, query, *args, **kwargs) -> str:
         """
@@ -315,8 +311,7 @@ class GradioClient(Client):
         """
         kwargs["instruction"] = kwargs.get("instruction", query)
         kwargs["langchain_action"] = LangChainAction.QUERY.value
-        ret = yield from self.query_or_summarize_or_extract(*args, **kwargs)
-        return ret
+        return (yield from self.query_or_summarize_or_extract(*args, **kwargs))
 
     def summarize(self, *args, query=None, focus=None, **kwargs) -> str:
         """
@@ -339,8 +334,7 @@ class GradioClient(Client):
         kwargs["prompt_summary"] = kwargs.get("prompt_summary", query or prompt_summary0)
         kwargs["instruction"] = kwargs.get('instruction', focus)
         kwargs["langchain_action"] = LangChainAction.SUMMARIZE_MAP.value
-        ret = yield from self.query_or_summarize_or_extract(*args, **kwargs)
-        return ret
+        return (yield from self.query_or_summarize_or_extract(*args, **kwargs))
 
     def extract(self, *args, query=None, focus=None, **kwargs) -> list[str]:
         """
@@ -363,8 +357,7 @@ class GradioClient(Client):
         kwargs["prompt_extraction"] = kwargs.get("prompt_extraction", query or prompt_extraction0)
         kwargs["instruction"] = kwargs.get('instruction', focus)
         kwargs["langchain_action"] = LangChainAction.EXTRACT.value
-        ret = yield from self.query_or_summarize_or_extract(*args, **kwargs)
-        return ret
+        return (yield from self.query_or_summarize_or_extract(*args, **kwargs))
 
     def query_or_summarize_or_extract(self,
                                       h2ogpt_key: str = None,
