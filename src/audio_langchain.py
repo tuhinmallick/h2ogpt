@@ -56,7 +56,7 @@ class OpenAIWhisperParser(BaseBlobParser):
             chunk = audio[i: i + chunk_duration_ms]
             file_obj = io.BytesIO(chunk.export(format="mp3").read())
             if blob.source is not None:
-                file_obj.name = blob.source + f"_part_{split_number}.mp3"
+                file_obj.name = f"{blob.source}_part_{split_number}.mp3"
             else:
                 file_obj.name = f"part_{split_number}.mp3"
 
@@ -137,36 +137,35 @@ class OpenAIWhisperParserLocal(BaseBlobParser):
         # set device, cpu by default check if there is a GPU available
         if device == "cpu":
             self.device = "cpu"
-            if lang_model is not None:
-                self.lang_model = lang_model
-                print("WARNING! Model override. Using model: ", self.lang_model)
-            else:
+            if lang_model is None:
                 # unless overridden, use the small base model on cpu
                 self.lang_model = "openai/whisper-base"
-        else:
-            if torch.cuda.is_available():
-                self.device = "cuda"
-                # check GPU memory and select automatically the model
-                mem = torch.cuda.get_device_properties(self.device).total_memory / (
-                        1024 ** 2
-                )
-                if mem < 5000:
-                    rec_model = "openai/whisper-base"
-                elif mem < 7000:
-                    rec_model = "openai/whisper-small"
-                elif mem < 12000:
-                    rec_model = "openai/whisper-medium"
-                else:
-                    rec_model = "openai/whisper-large-v3"
-
-                # check if model is overridden
-                if lang_model is not None:
-                    self.lang_model = lang_model
-                    print("WARNING! Model override. Might not fit in your GPU")
-                else:
-                    self.lang_model = rec_model
             else:
-                "cpu"
+                self.lang_model = lang_model
+                print("WARNING! Model override. Using model: ", self.lang_model)
+        elif torch.cuda.is_available():
+            self.device = "cuda"
+            # check GPU memory and select automatically the model
+            mem = torch.cuda.get_device_properties(self.device).total_memory / (
+                    1024 ** 2
+            )
+            if mem < 5000:
+                rec_model = "openai/whisper-base"
+            elif mem < 7000:
+                rec_model = "openai/whisper-small"
+            elif mem < 12000:
+                rec_model = "openai/whisper-medium"
+            else:
+                rec_model = "openai/whisper-large-v3"
+
+            # check if model is overridden
+            if lang_model is not None:
+                self.lang_model = lang_model
+                print("WARNING! Model override. Might not fit in your GPU")
+            else:
+                self.lang_model = rec_model
+        else:
+            "cpu"
 
         print("Using the following model: ", self.lang_model)
 
@@ -213,7 +212,7 @@ class OpenAIWhisperParserLocal(BaseBlobParser):
             )
 
         file = str(blob.path)
-        if any([file.endswith(x) for x in ['.mp4', '.mpeg', '.mpg']]):
+        if any(file.endswith(x) for x in ['.mp4', '.mpeg', '.mpg']):
             import audioread.ffdec  # Use ffmpeg decoder
             aro = audioread.ffdec.FFmpegAudioFile(blob.path)
             y, sr = librosa.load(aro, sr=16000)

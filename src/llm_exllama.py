@@ -95,10 +95,7 @@ class Exllama(LLM):
             model_paths = glob.glob(full_pattern)
             if model_paths:  # If there are any files matching the current pattern
                 break  # Exit the loop as soon as we find a matching file
-        if model_paths:  # If there are any files matching any of the patterns
-            return model_paths[0]
-        else:
-            return None  # Return None if no matching files were found
+        return model_paths[0] if model_paths else None
 
     @staticmethod
     def configure_object(params, values, logfunc):
@@ -204,8 +201,7 @@ class Exllama(LLM):
         setattr(generator.settings, "stop_sequences", values["stop_sequences"])
         logfunc(f"stop_sequences {values['stop_sequences']}")
 
-        disallowed = values.get("disallowed_tokens")
-        if disallowed:
+        if disallowed := values.get("disallowed_tokens"):
             generator.disallow_tokens(disallowed)
             print(f"Disallowed Tokens: {generator.disallowed_tokens}")
 
@@ -323,7 +319,7 @@ class Exllama(LLM):
                 # replace the broken unicode character with combined one
                 text=text[:-2]
                 text_chunk = stuff[cursor_tail-1:cursor_tail]
-                
+
             cursor_head = cursor_tail
 
             # Append the generated chunk to our stream buffer
@@ -351,7 +347,7 @@ class Exllama(LLM):
                 # Partially matched a stop, continue buffering but don't yield.
                 continue
             elif status == self.MatchStatus.NO_MATCH:
-                if text_callback and not (text_chunk == BROKEN_UNICODE):
+                if text_callback and text_chunk != BROKEN_UNICODE:
                     text_callback(text_chunk)
                 yield text  # Not a stop, yield the match buffer.
 

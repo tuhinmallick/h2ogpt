@@ -170,10 +170,7 @@ if os.getenv('OPENAI_API_KEY'):
 inv_prompt_type_to_model_name = {v.strip(): k for k, l in prompt_type_to_model_name.items() for v in l}
 inv_prompt_type_to_model_lower = {v.strip().lower(): k for k, l in prompt_type_to_model_name.items() for v in l}
 
-prompt_types_strings = []
-for p in PromptType:
-    prompt_types_strings.extend([p.name])
-
+prompt_types_strings = [p.name for p in PromptType]
 prompt_types = []
 for p in PromptType:
     prompt_types.extend([p.name, p.value, str(p.value)])

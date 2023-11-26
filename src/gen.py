@@ -89,7 +89,7 @@ def switch_a_roo_llama(base_model, model_path_llama, load_gptq, load_awq, n_gqa)
                 len(just_model_split) == 2:
             just_model = just_model_split[0]
             lower_model = just_model.lower()
-            base_model0 = 'https://huggingface.co/%s/resolve/main/%s.Q5_K_M%s' % (base_model, lower_model, file_postfix)
+            base_model0 = f'https://huggingface.co/{base_model}/resolve/main/{lower_model}.Q5_K_M{file_postfix}'
             if url_alive(base_model0):
                 base_model = base_model0
         model_path_llama = base_model

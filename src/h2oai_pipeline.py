@@ -68,10 +68,7 @@ class H2OTextGenerationPipeline(TextGenerationPipeline):
     def get_token_count(x, tokenizer):
         # NOTE: Somewhat duplicates get_token_count()
         # handle ambiguity in if get dict or list
-        if hasattr(tokenizer, 'encode'):
-            tokens = tokenizer.encode(x)
-        else:
-            tokens = tokenizer(x)
+        tokens = tokenizer.encode(x) if hasattr(tokenizer, 'encode') else tokenizer(x)
         if isinstance(tokens, dict) and 'input_ids' in tokens:
             tokens = tokens['input_ids']
         if isinstance(tokens, list):
@@ -81,7 +78,7 @@ class H2OTextGenerationPipeline(TextGenerationPipeline):
         elif len(tokens.shape) == 1:
             n_tokens = tokens.shape[0]
         else:
-            raise RuntimeError("Cannot handle tokens: %s" % tokens)
+            raise RuntimeError(f"Cannot handle tokens: {tokens}")
         return n_tokens
 
     @staticmethod
@@ -101,7 +98,7 @@ class H2OTextGenerationPipeline(TextGenerationPipeline):
                 len0 = len(prompt_text)
                 prompt_text = prompt_text[-model_max_length * 10:]
                 if verbose:
-                    print("Cut of input: %s -> %s" % (len0, len(prompt_text)), flush=True)
+                    print(f"Cut of input: {len0} -> {len(prompt_text)}", flush=True)
         elif max_prompt_length is not None:
             model_max_length = max_prompt_length
         else:
@@ -112,11 +109,14 @@ class H2OTextGenerationPipeline(TextGenerationPipeline):
         if model_max_length is not None:
             # can't wait for "hole" if not plain prompt_type, since would lose prefix like <human>:
             # For https://github.com/h2oai/h2ogpt/issues/192
-            for trial in range(0, 5):
-                if prompt_text:
-                    num_prompt_tokens = H2OTextGenerationPipeline.get_token_count(prompt_text, tokenizer)
-                else:
-                    num_prompt_tokens = 0
+            for _ in range(0, 5):
+                num_prompt_tokens = (
+                    H2OTextGenerationPipeline.get_token_count(
+                        prompt_text, tokenizer
+                    )
+                    if prompt_text
+                    else 0
+                )
                 if num_prompt_tokens > model_max_length:
                     # conservative by using int()
                     chars_per_token = len(prompt_text) / num_prompt_tokens
@@ -124,16 +124,22 @@ class H2OTextGenerationPipeline(TextGenerationPipeline):
                     model_max_length_with_buffer = model_max_length - buffer
                     prompt_text = prompt_text[-int(model_max_length_with_buffer * chars_per_token):]
                     if verbose:
-                        print("reducing %s tokens, assuming average of %s chars/token for %s characters" % (
-                            num_prompt_tokens, chars_per_token, len(prompt_text)), flush=True)
+                        print(
+                            f"reducing {num_prompt_tokens} tokens, assuming average of {chars_per_token} chars/token for {len(prompt_text)} characters",
+                            flush=True,
+                        )
                 else:
                     if verbose:
-                        print("using %s tokens with %s chars" % (num_prompt_tokens, len(prompt_text)), flush=True)
+                        print(
+                            f"using {num_prompt_tokens} tokens with {len(prompt_text)} chars",
+                            flush=True,
+                        )
                     break
             if num_prompt_tokens is not None and num_prompt_tokens > model_max_length:
                 print(
-                    "Failed to reduce %s tokens with %s chars: %s" % (num_prompt_tokens, len(prompt_text), prompt_text),
-                    flush=True)
+                    f"Failed to reduce {num_prompt_tokens} tokens with {len(prompt_text)} chars: {prompt_text}",
+                    flush=True,
+                )
 
         return prompt_text, num_prompt_tokens
 

@@ -14,8 +14,7 @@ class ChatContentHandler(LLMContentHandler):
 
     def transform_input(self, prompt: str, model_kwargs: typing.Dict) -> bytes:
         messages0 = []
-        openai_system_prompt = "You are a helpful assistant."
-        if openai_system_prompt:
+        if openai_system_prompt := "You are a helpful assistant.":
             messages0.append({"role": "system", "content": openai_system_prompt})
         messages0.append({'role': 'user', 'content': prompt})
         input_dict = {'inputs': [messages0], "parameters": model_kwargs}

@@ -28,7 +28,7 @@ def do_export():
     # for testing
     if base_model and output:
         BASE_MODEL = base_model
-        LORA_WEIGHTS = output + ".lora"
+        LORA_WEIGHTS = f"{output}.lora"
         OUTPUT_NAME = output
 
     llama_type = "llama" in BASE_MODEL
@@ -58,10 +58,12 @@ def do_export():
         layers = base_model.model.layers
         first_weight = layers[0].self_attn.q_proj.weight
     else:
-        if any([x in BASE_MODEL.lower() for x in ["pythia", "h2ogpt", "gpt-neox"]]):
+        if any(
+            x in BASE_MODEL.lower() for x in ["pythia", "h2ogpt", "gpt-neox"]
+        ):
             layers = base_model.gpt_neox.base_model.layers
             first_weight = layers[0].attention.query_key_value.weight
-        elif any([x in BASE_MODEL.lower() for x in ["falcon"]]):
+        elif any(x in BASE_MODEL.lower() for x in ["falcon"]):
             first_weight = base_model.transformer.h._modules['0'].self_attention.query_key_value.weight
         else:
             layers = base_model.transformer.base_model.h
@@ -86,7 +88,7 @@ def do_export():
         #     layer.self_attn.v_proj.merge_weights = True
         #     layer.self_attn.o_proj.merge_weights = True
     else:
-        if any([x in BASE_MODEL.lower() for x in ["pythia", "gpt-neox"]]):
+        if any(x in BASE_MODEL.lower() for x in ["pythia", "gpt-neox"]):
             for layer in lora_model.base_model.gpt_neox.base_model.layers:
                 layer.attention.query_key_value.merge_weights = True
             merged_model = lora_model
@@ -183,11 +185,7 @@ def do_export():
         for k, v in merged_model_sd.items():
             new_k = translate_state_dict_key(k)
             if new_k is not None:
-                if "wq" in new_k or "wk" in new_k:
-                    new_state_dict[new_k] = unpermute(v)
-                else:
-                    new_state_dict[new_k] = v
-
+                new_state_dict[new_k] = unpermute(v) if "wq" in new_k or "wk" in new_k else v
         os.makedirs("./ckpt", exist_ok=True)
 
         torch.save(new_state_dict, "./ckpt/consolidated.00.pth")
@@ -220,12 +218,18 @@ def do_export():
 def do_copy(OUTPUT_NAME):
     dest_file = os.path.join(OUTPUT_NAME, "h2oai_pipeline.py")
     shutil.copyfile("src/h2oai_pipeline.py", dest_file)
-    os.system("""sed -i 's/from enums.*//g' %s""" % dest_file)
-    os.system("""sed -i 's/from stopping.*//g' %s""" % dest_file)
-    os.system("""sed -i 's/from prompter.*//g' %s""" % dest_file)
-    os.system("""cat %s|grep -v "from enums import PromptType" >> %s""" % ('src/enums.py', dest_file))
-    os.system("""cat %s|grep -v "from enums import PromptType" >> %s""" % ('src/prompter.py', dest_file))
-    os.system("""cat %s|grep -v "from enums import PromptType" >> %s""" % ('src/stopping.py', dest_file))
+    os.system(f"""sed -i 's/from enums.*//g' {dest_file}""")
+    os.system(f"""sed -i 's/from stopping.*//g' {dest_file}""")
+    os.system(f"""sed -i 's/from prompter.*//g' {dest_file}""")
+    os.system(
+        f"""cat src/enums.py|grep -v "from enums import PromptType" >> {dest_file}"""
+    )
+    os.system(
+        f"""cat src/prompter.py|grep -v "from enums import PromptType" >> {dest_file}"""
+    )
+    os.system(
+        f"""cat src/stopping.py|grep -v "from enums import PromptType" >> {dest_file}"""
+    )
 
 
 TEST_OUTPUT_NAME = "test_output"

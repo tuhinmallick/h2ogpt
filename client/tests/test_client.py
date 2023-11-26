@@ -140,17 +140,17 @@ def test_readme_example(local_server):
     # Text completion
     text_completion = client.text_completion.create()
     response = asyncio.run(text_completion.complete("Hello world"))
-    print("asyncio text completion response: %s" % response)
+    print(f"asyncio text completion response: {response}")
     # Text completion: synchronous
     response = text_completion.complete_sync("Hello world")
-    print("sync text completion response: %s" % response)
+    print(f"sync text completion response: {response}")
 
     # Chat completion
     chat_completion = client.chat_completion.create()
     reply = asyncio.run(chat_completion.chat("Hey!"))
-    print("asyncio text completion user: %s gpt: %s" % (reply["user"], reply["gpt"]))
+    print(f'asyncio text completion user: {reply["user"]} gpt: {reply["gpt"]}')
     chat_history = chat_completion.chat_history()
-    print("chat_history: %s" % chat_history)
+    print(f"chat_history: {chat_history}")
     # Chat completion: synchronous
     reply = chat_completion.chat_sync("Hey!")
-    print("sync chat completion gpt: %s" % reply["gpt"])
+    print(f'sync chat completion gpt: {reply["gpt"]}')

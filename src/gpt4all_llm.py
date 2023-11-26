@@ -65,10 +65,7 @@ def get_model_kwargs(llamacpp_dict, default_kwargs, cls, exclude_list=[]):
     # make int or float if can to satisfy types for class
     for k, v in model_kwargs.items():
         try:
-            if float(v) == int(v):
-                model_kwargs[k] = int(v)
-            else:
-                model_kwargs[k] = float(v)
+            model_kwargs[k] = int(v) if float(v) == int(v) else float(v)
         except:
             pass
     return model_kwargs
@@ -179,7 +176,9 @@ def get_llm_gpt4all(model_name=None,
         if max_seq_len is None:
             redo = True
             max_seq_len = llm.client.n_embd()
-            print("Auto-detected LLaMa n_ctx=%s, will unload then reload with this setting." % max_seq_len)
+            print(
+                f"Auto-detected LLaMa n_ctx={max_seq_len}, will unload then reload with this setting."
+            )
 
         # with multiple GPUs, something goes wrong unless generation occurs early before other imports
         # CUDA error 704 at /tmp/pip-install-khkugdmy/llama-cpp-python_8c0a9782b7604a5aaf95ec79856eac97/vendor/llama.cpp/ggml-cuda.cu:6408: peer access is already enabled
@@ -231,7 +230,7 @@ def get_llm_gpt4all(model_name=None,
         inner_model = llm.client
         inner_tokenizer = FakeTokenizer(model_max_length=max_seq_len)
     else:
-        raise RuntimeError("No such model_name %s" % model_name)
+        raise RuntimeError(f"No such model_name {model_name}")
     if inner_class:
         return inner_model, inner_tokenizer, redo, max_seq_len
     else:
@@ -262,14 +261,11 @@ class H2OGPT4All(gpt4all.GPT4All):
                     model_type=values["backend"],
                     allow_download=True,
                 )
-                if values["n_threads"] is not None:
-                    # set n_threads
-                    values["client"].model.set_thread_count(values["n_threads"])
             else:
                 values["client"] = values["model"]
-                if values["n_threads"] is not None:
-                    # set n_threads
-                    values["client"].model.set_thread_count(values["n_threads"])
+            if values["n_threads"] is not None:
+                # set n_threads
+                values["client"].model.set_thread_count(values["n_threads"])
             try:
                 values["backend"] = values["client"].model_type
             except AttributeError:
@@ -300,7 +296,7 @@ class H2OGPT4All(gpt4all.GPT4All):
 
         verbose = False
         if verbose:
-            print("_call prompt: %s" % prompt, flush=True)
+            print(f"_call prompt: {prompt}", flush=True)
         # FIXME: GPT4ALl doesn't support yield during generate, so cannot support streaming except via itself to stdout
         return super()._call(prompt, stop=stop, run_manager=run_manager)
 
@@ -354,7 +350,7 @@ class H2OLlamaCpp(LlamaCpp):
                     else:
                         from llama_cpp_cuda import Llama
                 except Exception as e:
-                    print("Failed to listen to n_gpus: %s" % str(e), flush=True)
+                    print(f"Failed to listen to n_gpus: {str(e)}", flush=True)
                     try:
                         from llama_cpp import Llama
                     except ImportError:
@@ -398,26 +394,19 @@ class H2OLlamaCpp(LlamaCpp):
         stop = self.prompter.stop_sequences
 
         if verbose:
-            print("_call prompt: %s" % prompt, flush=True)
+            print(f"_call prompt: {prompt}", flush=True)
 
         if self.streaming:
-            # parent handler of streamer expects to see prompt first else output="" and lose if prompt=None in prompter
-            text = ""
-            for token in self.stream(input=prompt, stop=stop):
-                # for token in self.stream(input=prompt, stop=stop, run_manager=run_manager):
-                text_chunk = token  # ["choices"][0]["text"]
-                text += text_chunk
-            self.count_output_tokens += self.get_num_tokens(text)
-            text = self.remove_stop_text(text, stop=stop)
-            return text
+            text = "".join(self.stream(input=prompt, stop=stop))
         else:
             params = self._get_parameters(stop)
             params = {**params, **kwargs}
             result = self.client(prompt=prompt, **params)
             text = result["choices"][0]["text"]
-            self.count_output_tokens += self.get_num_tokens(text)
-            text = self.remove_stop_text(text, stop=stop)
-            return text
+
+        self.count_output_tokens += self.get_num_tokens(text)
+        text = self.remove_stop_text(text, stop=stop)
+        return text
 
     def remove_stop_text(self, text, stop=None):
         # remove stop sequences from the end of the generated text

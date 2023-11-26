@@ -156,7 +156,6 @@ def run_cli(  # for local function:
             res_old = ''
             for gen_output in gener:
                 res = gen_output['response']
-                sources = gen_output['sources']
                 if base_model not in non_hf_types or base_model in ['llama']:
                     if not stream_output:
                         print(res)
@@ -168,7 +167,7 @@ def run_cli(  # for local function:
                     outr = res  # don't accumulate
                 else:
                     outr += res  # just is one thing
-                    if sources:
+                    if sources := gen_output['sources']:
                         # show sources at end after model itself had streamed to std rest of response
                         print('\n\n' + sources, flush=True)
             all_generations.append(outr + '\n')

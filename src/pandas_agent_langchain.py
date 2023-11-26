@@ -54,9 +54,7 @@ def _get_multi_prompt(
     if prefix is None:
         prefix = MULTI_DF_PREFIX
 
-    df_locals = {}
-    for i, dataframe in enumerate(dfs):
-        df_locals[f"df{i + 1}"] = dataframe
+    df_locals = {f"df{i + 1}": dataframe for i, dataframe in enumerate(dfs)}
     tools = [PythonAstREPLTool(locals=df_locals)]
 
     prompt = ZeroShotAgent.create_prompt(
@@ -218,9 +216,7 @@ def _get_functions_multi_prompt(
         prefix = MULTI_DF_PREFIX_FUNCTIONS
     prefix = prefix.format(num_dfs=str(len(dfs)))
 
-    df_locals = {}
-    for i, dataframe in enumerate(dfs):
-        df_locals[f"df{i + 1}"] = dataframe
+    df_locals = {f"df{i + 1}": dataframe for i, dataframe in enumerate(dfs)}
     tools = [PythonAstREPLTool(locals=df_locals)]
     system_message = SystemMessage(content=prefix + suffix_to_use)
     prompt = OpenAIFunctionsAgent.create_prompt(system_message=system_message)

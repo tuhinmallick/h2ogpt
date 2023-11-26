@@ -197,7 +197,7 @@ def get_db(sources, use_openai_embedding=False, db_type='faiss',
                                                                   use_openai_embedding=use_openai_embedding,
                                                                   hf_embedding_model=hf_embedding_model)
     else:
-        raise RuntimeError("No such db_type=%s" % db_type)
+        raise RuntimeError(f"No such db_type={db_type}")
 
     # once here, db is not changing and embedding choices in calling functions does not matter
     return db
@@ -213,26 +213,26 @@ def _get_unique_sources_in_weaviate(db):
         last_id = id_source_list[-1][0]
         result = db._client.data_object.get(class_name=db._index_name, limit=batch_size, after=last_id)
 
-    unique_sources = {source for _, source in id_source_list}
-    return unique_sources
+    return {source for _, source in id_source_list}
 
 
 def del_from_db(db, sources, db_type=None):
-    if db_type in ['chroma', 'chroma_old'] and db is not None:
-        # sources should be list of x.metadata['source'] from document metadatas
-        if isinstance(sources, str):
-            sources = [sources]
-        else:
-            assert isinstance(sources, (list, tuple, types.GeneratorType))
-        metadatas = set(sources)
-        client_collection = db._client.get_collection(name=db._collection.name,
-                                                      embedding_function=db._collection._embedding_function)
-        for source in metadatas:
-            meta = dict(source=source)
-            try:
-                client_collection.delete(where=meta)
-            except KeyError:
-                pass
+    if db_type not in ['chroma', 'chroma_old'] or db is None:
+        return
+    # sources should be list of x.metadata['source'] from document metadatas
+    if isinstance(sources, str):
+        sources = [sources]
+    else:
+        assert isinstance(sources, (list, tuple, types.GeneratorType))
+    metadatas = set(sources)
+    client_collection = db._client.get_collection(name=db._collection.name,
+                                                  embedding_function=db._collection._embedding_function)
+    for source in metadatas:
+        meta = dict(source=source)
+        try:
+            client_collection.delete(where=meta)
+        except KeyError:
+            pass
 
 
 def add_to_db(db, sources, db_type='faiss',
@@ -258,7 +258,7 @@ def add_to_db(db, sources, db_type='faiss',
     elif db_type in ['chroma', 'chroma_old']:
         collection = get_documents(db)
         # files we already have:
-        metadata_files = set([x['source'] for x in collection['metadatas']])
+        metadata_files = {x['source'] for x in collection['metadatas']}
         if avoid_dup_by_file:
             # Too weak in case file changed content, assume parent shouldn't pass true for this for now
             raise RuntimeError("Not desired code path")
@@ -266,15 +266,22 @@ def add_to_db(db, sources, db_type='faiss',
             # look at hash, instead of page_content
             # migration: If no hash previously, avoid updating,
             #  since don't know if need to update and may be expensive to redo all unhashed files
-            metadata_hash_ids = set(
-                [x['hashid'] for x in collection['metadatas'] if 'hashid' in x and x['hashid'] not in ["None", None]])
+            metadata_hash_ids = {
+                x['hashid']
+                for x in collection['metadatas']
+                if 'hashid' in x and x['hashid'] not in ["None", None]
+            }
             # avoid sources with same hash
             sources = [x for x in sources if x.metadata.get('hashid') not in metadata_hash_ids]
             num_nohash = len([x for x in sources if not x.metadata.get('hashid')])
             print("Found %s new sources (%d have no hash in original source,"
                   " so have to reprocess for migration to sources with hash)" % (len(sources), num_nohash), flush=True)
             # get new file names that match existing file names.  delete existing files we are overridding
-            dup_metadata_files = set([x.metadata['source'] for x in sources if x.metadata['source'] in metadata_files])
+            dup_metadata_files = {
+                x.metadata['source']
+                for x in sources
+                if x.metadata['source'] in metadata_files
+            }
             print("Removing %s duplicate files from db because ingesting those as new documents" % len(
                 dup_metadata_files), flush=True)
             client_collection = db._client.get_collection(name=db._collection.name,
@@ -289,7 +296,7 @@ def add_to_db(db, sources, db_type='faiss',
         if num_new_sources == 0:
             return db, num_new_sources, []
         if hasattr(db, '_persist_directory'):
-            print("Existing db, adding to %s" % db._persist_directory, flush=True)
+            print(f"Existing db, adding to {db._persist_directory}", flush=True)
             # chroma only
             lock_file = get_db_lock_file(db)
             context = filelock.FileLock
@@ -313,7 +320,7 @@ def add_to_db(db, sources, db_type='faiss',
             # save here is for migration, in case old db directory without embedding saved
             save_embed(db, use_openai_embedding, hf_embedding_model)
     else:
-        raise RuntimeError("No such db_type=%s" % db_type)
+        raise RuntimeError(f"No such db_type={db_type}")
 
     new_sources_metadata = [x.metadata for x in sources]
 
@@ -328,7 +335,7 @@ def create_or_update_db(db_type, persist_directory, collection_name,
     if not os.path.isdir(persist_directory) or not add_if_exists:
         if os.path.isdir(persist_directory):
             if verbose:
-                print("Removing %s" % persist_directory, flush=True)
+                print(f"Removing {persist_directory}", flush=True)
             remove(persist_directory)
         if verbose:
             print("Generating db", flush=True)
@@ -347,30 +354,26 @@ def create_or_update_db(db_type, persist_directory, collection_name,
         if client.schema.exists(index_name) and not add_if_exists:
             client.schema.delete_class(index_name)
             if verbose:
-                print("Removing %s" % index_name, flush=True)
-    elif db_type in ['chroma', 'chroma_old']:
-        pass
-
-    if not add_if_exists:
-        if verbose:
+                print(f"Removing {index_name}", flush=True)
+    if verbose:
+        if not add_if_exists:
             print("Generating db", flush=True)
-    else:
-        if verbose:
+        else:
             print("Loading and updating db", flush=True)
 
-    db = get_db(sources,
-                use_openai_embedding=use_openai_embedding,
-                db_type=db_type,
-                persist_directory=persist_directory,
-                langchain_mode=collection_name,
-                langchain_mode_paths={collection_name: user_path},
-                langchain_mode_types={collection_name: langchain_type},
-                hf_embedding_model=hf_embedding_model,
-                migrate_embedding_model=migrate_embedding_model,
-                auto_migrate_db=auto_migrate_db,
-                n_jobs=n_jobs)
-
-    return db
+    return get_db(
+        sources,
+        use_openai_embedding=use_openai_embedding,
+        db_type=db_type,
+        persist_directory=persist_directory,
+        langchain_mode=collection_name,
+        langchain_mode_paths={collection_name: user_path},
+        langchain_mode_types={collection_name: langchain_type},
+        hf_embedding_model=hf_embedding_model,
+        migrate_embedding_model=migrate_embedding_model,
+        auto_migrate_db=auto_migrate_db,
+        n_jobs=n_jobs,
+    )
 
 
 from langchain.embeddings import FakeEmbeddings
@@ -467,14 +470,16 @@ class H2Oagenerate:
             print("_agenerate H2O", flush=True)
         generations = []
         new_arg_supported = inspect.signature(self._acall).parameters.get("run_manager")
-        self.count_input_tokens += sum([self.get_num_tokens(prompt) for prompt in prompts])
+        self.count_input_tokens += sum(
+            self.get_num_tokens(prompt) for prompt in prompts
+        )
         tasks = [
             asyncio.ensure_future(self._agenerate_one(prompt, stop=stop, run_manager=run_manager,
                                                       new_arg_supported=new_arg_supported, **kwargs))
             for prompt in prompts
         ]
         texts = await asyncio.gather(*tasks)
-        self.count_output_tokens += sum([self.get_num_tokens(text) for text in texts])
+        self.count_output_tokens += sum(self.get_num_tokens(text) for text in texts)
         [generations.append([Generation(text=text)]) for text in texts]
         if self.verbose:
             print("done _agenerate H2O", flush=True)
@@ -667,12 +672,6 @@ class GradioInference(H2Oagenerate, LLM):
             res = client.predict(str(dict(client_kwargs)), api_name=api_name)
             res_dict = ast.literal_eval(res)
             text = res_dict['response']
-            ret = self.prompter.get_response(prompt + text, prompt=prompt,
-                                             sanitize_bot_response=self.sanitize_bot_response)
-            self.count_output_tokens += self.get_num_tokens(ret)
-            if self.verbose:
-                print("end _call", flush=True)
-            return ret
         else:
             text_callback = None
             if run_manager:
@@ -691,10 +690,9 @@ class GradioInference(H2Oagenerate, LLM):
                     break
                 if self.max_time is not None and time.time() - t_start > self.max_time:
                     if self.verbose:
-                        print("Exceeded max_time=%s" % self.max_time, flush=True)
+                        print(f"Exceeded max_time={self.max_time}", flush=True)
                     break
-                outputs_list = job.communicator.job.outputs
-                if outputs_list:
+                if outputs_list := job.communicator.job.outputs:
                     res = job.communicator.job.outputs[-1]
                     res_dict = ast.literal_eval(res)
                     text = res_dict['response']
@@ -735,12 +733,13 @@ class GradioInference(H2Oagenerate, LLM):
             text_chunk = text[len(text0):]
             if text_callback:
                 text_callback(text_chunk)
-            ret = self.prompter.get_response(prompt + text, prompt=prompt,
-                                             sanitize_bot_response=self.sanitize_bot_response)
-            self.count_output_tokens += self.get_num_tokens(ret)
-            if self.verbose:
-                print("end _call", flush=True)
-            return ret
+
+        ret = self.prompter.get_response(prompt + text, prompt=prompt,
+                                         sanitize_bot_response=self.sanitize_bot_response)
+        self.count_output_tokens += self.get_num_tokens(ret)
+        if self.verbose:
+            print("end _call", flush=True)
+        return ret
 
     # copy-paste of streaming part of _call() with asyncio.sleep instead
     async def _acall(
@@ -770,8 +769,7 @@ class GradioInference(H2Oagenerate, LLM):
             e = job.future._exception
             if e is not None:
                 break
-            outputs_list = job.communicator.job.outputs
-            if outputs_list:
+            if outputs_list := job.communicator.job.outputs:
                 res = job.communicator.job.outputs[-1]
                 res_dict = ast.literal_eval(res)
                 text = res_dict['response']
@@ -913,12 +911,7 @@ class H2OHuggingFaceTextGenInference(H2Oagenerate, HuggingFaceTextGenInference):
                 text += text_chunk
                 text = self.prompter.get_response(prompt + text, prompt=prompt,
                                                   sanitize_bot_response=self.sanitize_bot_response)
-                # stream part
-                is_stop = False
-                for stop_seq in stop:
-                    if stop_seq in text_chunk:
-                        is_stop = True
-                        break
+                is_stop = any(stop_seq in text_chunk for stop_seq in stop)
                 if is_stop:
                     break
                 if not response.token.special:
@@ -1041,11 +1034,17 @@ class H2OOpenAI(OpenAI):
         if self.verbose:
             print("Hit _generate", flush=True)
         prompts, stop, kwargs = self.update_prompts_and_stops(prompts, stop, **kwargs)
-        self.count_input_tokens += sum([self.get_num_tokens(prompt) for prompt in prompts])
+        self.count_input_tokens += sum(
+            self.get_num_tokens(prompt) for prompt in prompts
+        )
         rets = super()._generate(prompts, stop=stop, run_manager=run_manager, **kwargs)
         try:
             self.count_output_tokens += sum(
-                [self.get_num_tokens(z) for z in flatten_list([[x.text for x in y] for y in rets.generations])])
+                self.get_num_tokens(z)
+                for z in flatten_list(
+                    [[x.text for x in y] for y in rets.generations]
+                )
+            )
         except Exception as e:
             if os.getenv('HARD_ASSERTS'):
                 raise
@@ -1097,25 +1096,26 @@ class H2OOpenAI(OpenAI):
         prompts, stop, kwargs = self.update_prompts_and_stops(prompts, stop, **kwargs)
         if self.batch_size > 1 or self.streaming:
             return await super()._agenerate(prompts, stop=stop, run_manager=run_manager, **kwargs)
-        else:
-            self.count_input_tokens += sum([self.get_num_tokens(prompt) for prompt in prompts])
-            tasks = [
-                asyncio.ensure_future(self._agenerate_one(prompt, stop=stop, run_manager=run_manager, **kwargs))
-                for prompt in prompts]
-            llm_results = await asyncio.gather(*tasks)
-            generations = [x.generations[0] for x in llm_results]
+        self.count_input_tokens += sum(
+            self.get_num_tokens(prompt) for prompt in prompts
+        )
+        tasks = [
+            asyncio.ensure_future(self._agenerate_one(prompt, stop=stop, run_manager=run_manager, **kwargs))
+            for prompt in prompts]
+        llm_results = await asyncio.gather(*tasks)
+        generations = [x.generations[0] for x in llm_results]
 
-            def reducer(accumulator, element):
-                for key, value in element.items():
-                    accumulator[key] = accumulator.get(key, 0) + value
-                return accumulator
+        def reducer(accumulator, element):
+            for key, value in element.items():
+                accumulator[key] = accumulator.get(key, 0) + value
+            return accumulator
 
-            collection = [x.llm_output['token_usage'] for x in llm_results]
-            token_usage = reduce(reducer, collection, {})
+        collection = [x.llm_output['token_usage'] for x in llm_results]
+        token_usage = reduce(reducer, collection, {})
 
-            llm_output = {"token_usage": token_usage, "model_name": self.model_name}
-            self.count_output_tokens += token_usage.get('completion_tokens', 0)
-            return LLMResult(generations=generations, llm_output=llm_output)
+        llm_output = {"token_usage": token_usage, "model_name": self.model_name}
+        self.count_output_tokens += token_usage.get('completion_tokens', 0)
+        return LLMResult(generations=generations, llm_output=llm_output)
 
     async def _agenerate_one(
             self,
@@ -1167,8 +1167,7 @@ class H2OReplicate(Replicate):
         data_point = dict(context=self.context, instruction=prompt, input=self.iinput)
         prompt = self.prompter.generate_prompt(data_point)
 
-        response = super()._call(prompt, stop=stop, run_manager=run_manager, **kwargs)
-        return response
+        return super()._call(prompt, stop=stop, run_manager=run_manager, **kwargs)
 
     def get_token_ids(self, text: str) -> List[int]:
         return self.tokenizer.encode(text)
@@ -1184,8 +1183,20 @@ class ExtraChat:
             messages.append(SystemMessage(content=self.system_prompt))
         if self.chat_conversation:
             for messages1 in self.chat_conversation:
-                messages.append(HumanMessage(content=messages1[0] if messages1[0] is not None else ''))
-                messages.append(AIMessage(content=messages1[1] if messages1[1] is not None else ''))
+                messages.extend(
+                    (
+                        HumanMessage(
+                            content=messages1[0]
+                            if messages1[0] is not None
+                            else ''
+                        ),
+                        AIMessage(
+                            content=messages1[1]
+                            if messages1[1] is not None
+                            else ''
+                        ),
+                    )
+                )
         prompt_messages = []
         for prompt in prompts:
             if isinstance(prompt, ChatPromptValue):

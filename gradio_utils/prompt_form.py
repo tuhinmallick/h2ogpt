@@ -5,15 +5,11 @@ import gradio as gr
 
 
 def get_chatbot_name(base_model, model_path_llama, inference_server='', debug=False):
-    if not debug:
-        inference_server = ''
-    else:
-        inference_server = ' : ' + inference_server
-    if base_model == 'llama':
-        model_path_llama = os.path.basename(model_path_llama)
-        return f'h2oGPT [Model: {model_path_llama}{inference_server}]'
-    else:
+    inference_server = '' if not debug else f' : {inference_server}'
+    if base_model != 'llama':
         return f'h2oGPT [Model: {base_model}{inference_server}]'
+    model_path_llama = os.path.basename(model_path_llama)
+    return f'h2oGPT [Model: {model_path_llama}{inference_server}]'
 
 
 def get_avatars(base_model, model_path_llama, inference_server=''):
@@ -89,23 +85,27 @@ def make_chatbots(output_label0, output_label0_model2, **kwargs):
     if kwargs['model_lock_columns'] == 0:
         # not using model_lock
         pass
-    elif nrows <= 1:
+    elif nrows <= 1 or nrows == kwargs['model_states']:
         with gr.Row():
-            for chat_kwargs1, model_state_lock in zip(chat_kwargs, kwargs['model_states']):
-                text_outputs.append(gr.Chatbot(**chat_kwargs1))
-    elif nrows == kwargs['model_states']:
-        with gr.Row():
-            for chat_kwargs1, model_state_lock in zip(chat_kwargs, kwargs['model_states']):
-                text_outputs.append(gr.Chatbot(**chat_kwargs1))
+            text_outputs.extend(
+                gr.Chatbot(**chat_kwargs1)
+                for chat_kwargs1, model_state_lock in zip(
+                    chat_kwargs, kwargs['model_states']
+                )
+            )
     elif nrows > 0:
         len_chatbots = len(kwargs['model_states'])
         nrows = math.ceil(len_chatbots / kwargs['model_lock_columns'])
         for nrowi in range(nrows):
             with gr.Row():
-                for mii, (chat_kwargs1, model_state_lock) in enumerate(zip(chat_kwargs, kwargs['model_states'])):
-                    if mii < nrowi * len_chatbots / nrows or mii >= (1 + nrowi) * len_chatbots / nrows:
-                        continue
-                    text_outputs.append(gr.Chatbot(**chat_kwargs1))
+                text_outputs.extend(
+                    gr.Chatbot(**chat_kwargs1)
+                    for mii, (chat_kwargs1, model_state_lock) in enumerate(
+                        zip(chat_kwargs, kwargs['model_states'])
+                    )
+                    if mii >= nrowi * len_chatbots / nrows
+                    and mii < (1 + nrowi) * len_chatbots / nrows
+                )
     if len(kwargs['model_states']) > 0:
         assert len(text_outputs) == len(kwargs['model_states'])
 

@@ -42,7 +42,7 @@ class H2OImageCaptionLoader(ImageCaptionLoader):
                  min_new_tokens=20,
                  max_tokens=50,
                  gpu_id='auto'):
-        if blip_model is None or blip_model is None:
+        if blip_model is None:
             blip_processor = "Salesforce/blip-image-captioning-base"
             blip_model = "Salesforce/blip-image-captioning-base"
 
@@ -81,18 +81,14 @@ class H2OImageCaptionLoader(ImageCaptionLoader):
                 self.device = 'cpu'
         else:
             self.device = 'cpu'
-        if self.caption_gpu:
-            if self.gpu_id == 'auto':
-                # blip2 has issues with multi-GPU.  Error says need to somehow set language model in device map
-                # device_map = 'auto'
-                self.device_map = {"": 0}
-            else:
-                if self.device == 'cuda':
-                    self.device_map = {"": 'cuda:%d' % self.gpu_id}
-                else:
-                    self.device_map = {"": 'cpu'}
-        else:
+        if self.caption_gpu and self.gpu_id != 'auto' and self.device == 'cuda':
+            self.device_map = {"": 'cuda:%d' % self.gpu_id}
+        elif self.caption_gpu and self.gpu_id != 'auto' or not self.caption_gpu:
             self.device_map = {"": 'cpu'}
+        else:
+            # blip2 has issues with multi-GPU.  Error says need to somehow set language model in device map
+            # device_map = 'auto'
+            self.device_map = {"": 0}
 
     def load_model(self):
         try:
@@ -193,11 +189,8 @@ class H2OImageCaptionLoader(ImageCaptionLoader):
             with self.context_class(self.device):
                 context_class_cast = NullContext if self.device == 'cpu' else torch.autocast
                 with context_class_cast(self.device):
-                    if self.load_half:
-                        # FIXME: RuntimeError: "slow_conv2d_cpu" not implemented for 'Half'
-                        inputs = processor(image, prompt, return_tensors="pt")  # .half()
-                    else:
-                        inputs = processor(image, prompt, return_tensors="pt")
+                    # FIXME: RuntimeError: "slow_conv2d_cpu" not implemented for 'Half'
+                    inputs = processor(image, prompt, return_tensors="pt")  # .half()
                     min_length = len(prompt) // 4 + self.min_new_tokens
                     self.max_tokens = max(self.max_tokens, min_length)
                     inputs.to(model.device)
